@@ -3,7 +3,7 @@
 
 #include <gtkmm.h>
 #include <gtkglmm.h>
-
+#include "scene.hpp"
 // The "main" OpenGL widget
 class Viewer : public Gtk::GL::DrawingArea {
 public:
@@ -15,7 +15,8 @@ public:
   // directly. Instead call this, which will cause an on_expose_event
   // call when the time is right.
   void invalidate();
-  
+  void set_scene_node(SceneNode *rootnode);
+  SceneNode *root;
 protected:
 
   // Events we implement
@@ -40,7 +41,11 @@ protected:
   // Draw a circle for the trackball, with OpenGL commands.
   // Assumes the context for the viewer is active.
   void draw_trackball_circle();
-  
+
+  int processHits(GLint hits, GLuint buffer[]);
+
+  int pick_id;
+  double x1,y1,dx,dy;
 private:
 };
 

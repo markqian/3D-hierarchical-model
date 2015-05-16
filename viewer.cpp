@@ -4,6 +4,7 @@
 #include <math.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
+#include <stdio.h>
 
 Viewer::Viewer()
 {
@@ -46,6 +47,11 @@ void Viewer::invalidate()
   get_window()->invalidate_rect( allocation, false);
 }
 
+void Viewer::set_scene_node(SceneNode *rootnode) {
+  root = rootnode;
+}
+
+
 void Viewer::on_realize()
 {
   // Do some OpenGL setup.
@@ -61,7 +67,7 @@ void Viewer::on_realize()
     return;
 
   glShadeModel(GL_SMOOTH);
-  glClearColor( 0.4, 0.4, 0.4, 0.0 );
+  glClearColor( 0, 0, 0, 0.0 );
   glEnable(GL_DEPTH_TEST);
 
   gldrawable->gl_end();
@@ -90,10 +96,22 @@ bool Viewer::on_expose_event(GdkEventExpose* event)
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   // Set up lighting
+  glEnable(GL_NORMALIZE);
+  glEnable(GL_LIGHTING);
+  glEnable(GL_LIGHT0);
+
+  GLfloat ambientLight[] = {0.0, 0.0, 0.0};
+  GLfloat diffuseLight[] =  {1.0, 1.0, 1.0}; 
+  GLfloat specularLight[] = {1.0, 1.0, 1.0}; 
+  GLfloat position[] = { 0.0f, 0.0f, 10.0f, 0.0f };
+  
+  glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
+  glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
+  glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
+  glLightfv(GL_LIGHT0, GL_POSITION, position);
 
   // Draw stuff
-
-  draw_trackball_circle();
+  root->walk_gl(false);
 
   // Swap the contents of the front and back buffers so we see what we
   // just drew. This should only be done if double buffering is enabled.
@@ -130,21 +148,101 @@ bool Viewer::on_configure_event(GdkEventConfigure* event)
   return true;
 }
 
+int Viewer::processHits (GLint hits, GLuint buffer[])
+{
+   unsigned int i, j;
+   GLuint names, *ptr, picked;
+   float min_z, z1;
+
+   min_z = 1000;
+   printf ("hits = %d\n", hits);
+   ptr = (GLuint *) buffer;
+   for (i = 0; i < hits; i++) { /*  for each hit  */
+      names = *ptr;
+      printf (" number of names for hit = %d\n", names); ptr++;
+
+      z1 = (float) *ptr/0x7fffffff;     
+      if ( z1 < min_z) {
+       	min_z = z1;
+      }
+      else {
+	continue;
+      }
+
+      printf("  z1 is %g;", (float) *ptr/0x7fffffff); ptr++;
+      printf(" z2 is %g\n", (float) *ptr/0x7fffffff); ptr++;
+      printf ("   the name is ");
+
+      if (std::abs(names) > 1000) {
+	continue;
+      }
+
+      for (j = 0; j < names; j++) {     /*  for each name */
+	picked = *ptr;
+	printf ("%d ", *ptr); ptr++;
+      }
+      printf ("\n");
+   }
+   return picked;
+}
+
+#define BUFSIZE 2048
+
 bool Viewer::on_button_press_event(GdkEventButton* event)
 {
-  std::cerr << "Stub: Button " << event->button << " pressed" << std::endl;
+  GLuint selectBuf[BUFSIZE];
+  GLint hits, picked;
+  GLint viewport[4]; 
+  glGetIntegerv (GL_VIEWPORT, viewport);
+
+  glSelectBuffer (BUFSIZE, selectBuf);
+  (void) glRenderMode (GL_SELECT);
+
+  glInitNames();
+
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity();
+  gluPickMatrix ((GLdouble) event->x, 
+		   (GLdouble) (viewport[3] - event->y), 
+		 5.0, 5.0, viewport);
+  gluPerspective(40.0, (GLfloat)get_width()/(GLfloat)get_height(), 0.1, 1000.0);
+
+  // Draw stuff
+  root->walk_gl(true);
+
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+
+  hits = glRenderMode (GL_RENDER);
+  picked = processHits (hits, selectBuf);
+
+  root->set_picked(picked,0,0);
+
+  x1 = event->x;
+  y1 = event->y;
+
+  pick_id = picked;
+
+  invalidate();
+  
   return true;
 }
 
 bool Viewer::on_button_release_event(GdkEventButton* event)
 {
-  std::cerr << "Stub: Button " << event->button << " released" << std::endl;
   return true;
 }
 
 bool Viewer::on_motion_notify_event(GdkEventMotion* event)
 {
-  std::cerr << "Stub: Motion at " << event->x << ", " << event->y << std::endl;
+  dx = event->x - x1;
+  dy = event->y - y1;
+
+  root->set_picked(pick_id,dx,dy);
+
+  invalidate();
+  
   return true;
 }
 

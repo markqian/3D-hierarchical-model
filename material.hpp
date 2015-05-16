@@ -2,6 +2,8 @@
 #define CS488_MATERIAL_HPP
 
 #include "algebra.hpp"
+#include <gtkmm.h>
+#include <gtkglmm.h>
 
 class Material {
 public:

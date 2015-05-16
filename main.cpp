@@ -26,6 +26,7 @@ int main(int argc, char** argv)
   // Construct our (only) window
   AppWindow window;
 
+  window.set_scene_node(root);
   // And run the application!
   Gtk::Main::run(window);
 }

@@ -2,6 +2,8 @@
 #define CS488_PRIMITIVE_HPP
 
 #include "algebra.hpp"
+#include <GL/gl.h>
+#include <GL/glu.h>
 
 class Primitive {
 public:
@@ -11,8 +13,11 @@ public:
 
 class Sphere : public Primitive {
 public:
+  Sphere();
   virtual ~Sphere();
   virtual void walk_gl(bool picking) const;
+private:
+  GLUquadricObj* m_Sphere;
 };
 
 #endif

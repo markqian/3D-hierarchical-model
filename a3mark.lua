@@ -1,5 +1,5 @@
 --
--- CS488 -- Introduction to Computer Graphics
+-- a3mark.lua -- Introduction to Computer Graphics
 -- 
 -- a3mark.lua
 --

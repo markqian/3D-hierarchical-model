@@ -7,7 +7,7 @@
 class AppWindow : public Gtk::Window {
 public:
   AppWindow();
-  
+  void set_scene_node(SceneNode *root);
 protected:
 
 private:

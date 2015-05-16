@@ -12,7 +12,7 @@ all: $(MAIN)
 depend: $(DEPENDS)
 
 clean:
-	rm -f *.o *.d $(MAIN)
+	rm -f *.o *.d *~ $(MAIN)
 
 $(MAIN): $(OBJECTS)
 	@echo Creating $@...

@@ -33,3 +33,7 @@ AppWindow::AppWindow()
 
   show_all();
 }
+
+void AppWindow::set_scene_node(SceneNode *root) {
+  m_viewer.set_scene_node(root);
+}
