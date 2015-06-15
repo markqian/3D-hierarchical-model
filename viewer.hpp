@@ -16,7 +16,30 @@ public:
   // call when the time is right.
   void invalidate();
   void set_scene_node(SceneNode *rootnode);
+
+  void redo();
+  void undo();
+  void set_position();
+  void set_joint();
+  void reset_orientation();
+  void reset_position();
+  void set_z_buffer();
+  void set_front_cull();
+  void set_back_cull();
+  Vector3D trackBallMapping(double x, double y);
+
   SceneNode *root;
+  bool position;
+  std::vector<Matrix4x4> trans_stack;
+  std::vector<Matrix4x4> redo_stack;
+  std::vector<int> id_stack;
+  std::vector<int> redo_ids;
+  bool front_face, back_face, z_buffer;
+  Vector3D curPoint, lastPoint, rotAxis;
+  bool buttonpressed[3];
+  GLfloat objectXform;
+  double rot_angle;
+
 protected:
 
   // Events we implement

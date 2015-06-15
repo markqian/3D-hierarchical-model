@@ -51,6 +51,7 @@ void SceneNode::rotate(char axis, double angle)
     r[1][1] = cos(angle*M_PI/180);
   }
 
+  m_init = m_init * r;
   m_trans = m_trans * r ;  
 }
 
@@ -62,6 +63,7 @@ void SceneNode::scale(const Vector3D& amount)
   r[1][1] = amount[1];
   r[2][2] = amount[2];
 
+  m_init = m_init * r;
   m_trans = m_trans * r;
 }
 
@@ -73,8 +75,21 @@ void SceneNode::translate(const Vector3D& amount)
   r[1][3] = amount[1];
   r[2][3] = amount[2];
 
+  m_init = m_init * r;
   m_trans = m_trans * r;
 }
+
+void SceneNode::mytranslate(const Vector3D& amount)
+{
+  Matrix4x4 r;
+
+  r[0][3] = amount[0];
+  r[1][3] = amount[1];
+  r[2][3] = amount[2];
+
+  m_trans = m_trans * r;
+}
+
 
 bool SceneNode::is_joint() const
 {
@@ -84,6 +99,8 @@ bool SceneNode::is_joint() const
 JointNode::JointNode(const std::string& name)
   : SceneNode(name)
 {
+  m_joint_x.change = 0;
+  m_joint_y.change = 0;
 }
 
 JointNode::~JointNode()
@@ -93,7 +110,6 @@ JointNode::~JointNode()
 void JointNode::walk_gl(bool picking) 
 {
   glMultMatrixd(m_trans.transpose().begin());
-
   for (ChildList::const_iterator it = m_children.begin(); it != m_children.end(); it++) {  
     (*it)->walk_gl(picking);
   }
@@ -111,6 +127,8 @@ void JointNode::set_joint_x(double min, double init, double max)
   m_joint_x.min = min;
   m_joint_x.init = init;
   m_joint_x.max = max;
+  m_joint_x.change = init;
+
 }
 
 void JointNode::set_joint_y(double min, double init, double max)
@@ -118,6 +136,8 @@ void JointNode::set_joint_y(double min, double init, double max)
   m_joint_y.min = min;
   m_joint_y.init = init;
   m_joint_y.max = max;
+  m_joint_y.change = init;
+
 }
 
 GeometryNode::GeometryNode(const std::string& name, Primitive* primitive)

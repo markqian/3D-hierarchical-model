@@ -33,11 +33,65 @@ Viewer::Viewer()
              Gdk::BUTTON_PRESS_MASK      | 
              Gdk::BUTTON_RELEASE_MASK    |
              Gdk::VISIBILITY_NOTIFY_MASK);
+  
+  position = false;
+  back_face = false;
+  front_face = false;
+  z_buffer = false;
+  buttonpressed[0] = false;
+  buttonpressed[1] = false;
+  buttonpressed[2] = false;
+
 }
 
 Viewer::~Viewer()
 {
   // Nothing to do here right now.
+}
+
+void Viewer::redo() {
+  root->redo_transformation(redo_stack,redo_ids);
+  invalidate();
+}
+
+void Viewer::undo() {
+  root->pop_transformation(trans_stack, id_stack,redo_stack,redo_ids);
+  invalidate();
+}
+
+void Viewer::set_position() {
+  position = true;
+}
+
+void Viewer::set_joint() {
+  position = false;
+}
+
+void Viewer::reset_position() {
+  root->reset_origin();
+  glLoadIdentity();
+  invalidate();
+}
+
+void Viewer::reset_orientation() {
+  root->reset_trans();
+  glLoadIdentity();
+  invalidate();
+}
+
+void Viewer::set_z_buffer() {
+  z_buffer = 1 - z_buffer;
+  invalidate();
+}
+
+void Viewer::set_front_cull() {
+  front_face = 1 - front_face;
+  invalidate();
+}
+
+void Viewer::set_back_cull() {
+  back_face = 1 - back_face;
+  invalidate();
 }
 
 void Viewer::invalidate()
@@ -82,6 +136,7 @@ bool Viewer::on_expose_event(GdkEventExpose* event)
   if (!gldrawable->gl_begin(get_gl_context()))
     return false;
 
+
   // Set up for perspective drawing 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -90,7 +145,22 @@ bool Viewer::on_expose_event(GdkEventExpose* event)
 
   // change to model view for drawing
   glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
+  //  glLoadIdentity();
+  // glRotatef( rot_angle, rotAxis[0], rotAxis[1], rotAxis[2] );
+
+  if (z_buffer) {
+    glEnable(GL_DEPTH_TEST);
+  }
+
+  if (back_face || front_face) {
+    glEnable(GL_CULL_FACE);
+    if (back_face && front_face)
+      glCullFace(GL_FRONT_AND_BACK);
+    else if (back_face) 
+      glCullFace(GL_BACK);
+    else
+      glCullFace(GL_FRONT);
+  }
 
   // Clear framebuffer
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -190,59 +260,131 @@ int Viewer::processHits (GLint hits, GLuint buffer[])
 
 bool Viewer::on_button_press_event(GdkEventButton* event)
 {
-  GLuint selectBuf[BUFSIZE];
-  GLint hits, picked;
-  GLint viewport[4]; 
-  glGetIntegerv (GL_VIEWPORT, viewport);
-
-  glSelectBuffer (BUFSIZE, selectBuf);
-  (void) glRenderMode (GL_SELECT);
-
-  glInitNames();
-
-  glMatrixMode(GL_PROJECTION);
-  glPushMatrix();
-  glLoadIdentity();
-  gluPickMatrix ((GLdouble) event->x, 
+  if (position) {
+    if (event->button == 1) {
+      //translate along x,y axis
+      lastPoint[0] = event->x;
+      lastPoint[1] = event->y;
+      buttonpressed[0] = true;
+    }
+    else if (event->button == 2) {
+      //translate along z axis
+      lastPoint[0] = event->x;
+      lastPoint[1] = event->y;
+      buttonpressed[1] = true;
+    }
+    else if (event->button == 3) {
+      //translate along virtual track ball
+      lastPoint = trackBallMapping(event->x, event->y);
+      buttonpressed[2] = true;
+    }
+  }
+  else {
+    GLuint selectBuf[BUFSIZE];
+    GLint hits, picked;
+    GLint viewport[4]; 
+    glGetIntegerv (GL_VIEWPORT, viewport);
+    
+    glSelectBuffer (BUFSIZE, selectBuf);
+    (void) glRenderMode (GL_SELECT);
+    
+    glInitNames();
+    
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluPickMatrix ((GLdouble) event->x, 
 		   (GLdouble) (viewport[3] - event->y), 
-		 5.0, 5.0, viewport);
-  gluPerspective(40.0, (GLfloat)get_width()/(GLfloat)get_height(), 0.1, 1000.0);
-
-  // Draw stuff
-  root->walk_gl(true);
-
-  glMatrixMode(GL_PROJECTION);
-  glPopMatrix();
-
-  hits = glRenderMode (GL_RENDER);
-  picked = processHits (hits, selectBuf);
-
-  root->set_picked(picked,0,0);
-
-  x1 = event->x;
-  y1 = event->y;
-
-  pick_id = picked;
-
+                   5.0, 5.0, viewport);
+    gluPerspective(40.0, (GLfloat)get_width()/(GLfloat)get_height(), 0.1, 1000.0);
+    
+    // Draw stuff
+    root->walk_gl(true);
+    
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    
+    hits = glRenderMode (GL_RENDER);
+    picked = processHits (hits, selectBuf);
+    
+    root->set_picked(picked,0,0);
+    
+    x1 = event->x;
+    y1 = event->y;
+    
+    pick_id = picked;    
+  }
   invalidate();
-  
+
   return true;
 }
 
 bool Viewer::on_button_release_event(GdkEventButton* event)
 {
+  if (position) {
+    if (event->button == 1)
+      buttonpressed[0] = false;
+    else if (event->button == 2)
+      buttonpressed[1] = false;
+    else if (event->button == 3)
+      buttonpressed[2] = false;
+  }
+  else {
+    
+    root->push_transformation(trans_stack, id_stack);
+  }
+
   return true;
 }
 
 bool Viewer::on_motion_notify_event(GdkEventMotion* event)
 {
-  dx = event->x - x1;
-  dy = event->y - y1;
+  if (position) {
+    if (buttonpressed[0] == true) {
+      //translate along x,y axis
+      double dx = event->x - lastPoint[0];
+      double dy = event->y - lastPoint[1];
+      root->mytranslate(Vector3D(dx/10,-dy/10,0));
+      invalidate();
+      lastPoint[0] = event->x;
+      lastPoint[1] = event->y;
+    }
+    else if (buttonpressed[1] == true ) {
+      //translate along z axis
+      double dx = event->x - lastPoint[0];
+      double dy = event->y - lastPoint[1];
+      root->mytranslate(Vector3D(0,0,dy/10));
+      invalidate();
+      lastPoint[0] = event->x;
+      lastPoint[1] = event->y;
+    }
+    else if (buttonpressed[2] == true) {
+      //translate along virtual track ball
+      curPoint = trackBallMapping(event->x, event->y);      
+      Vector3D direction = curPoint - lastPoint;
+      double velocity = direction.length();
+      if (velocity > 0.0001) {
+        rotAxis = curPoint.cross(lastPoint);
+        rot_angle = 90 * velocity;
+        lastPoint = curPoint;
+        GLfloat matrix[16];
+        glGetFloatv (GL_MODELVIEW_MATRIX, matrix);
+        glLoadIdentity();
+        glRotatef( rot_angle, rotAxis[0], rotAxis[1], rotAxis[2] );
+        glMultMatrixf( (GLfloat *) matrix );
+        invalidate();
+      }
+    }
+  }
+  else {
 
-  root->set_picked(pick_id,dx,dy);
-
-  invalidate();
-  
+    dx = event->x - x1;
+    dy = event->y - y1;
+    
+    root->set_picked(pick_id,dx,dy);
+    
+    invalidate();
+  }
   return true;
 }
 
@@ -283,3 +425,22 @@ void Viewer::draw_trackball_circle()
   glColor3f(0.0, 0.0, 0.0);
   glDisable(GL_LINE_SMOOTH);
 }
+
+Vector3D Viewer::trackBallMapping(double x, double y) {
+  Vector3D v;
+  double d;
+  double w = get_width();
+  double h = get_height();
+
+  v[0] = (2.0 * x - w)/w;
+  v[1] = (h - 2.0 * y)/h;
+  v[2] = 0;
+
+  d = v.length();
+  d = (d<1.0)?d:1.0;
+  v[2] = cos(M_PI/2.0 *d);  
+  v.normalize();
+  return v;
+}
+
+
